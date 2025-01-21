@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Chat</title>
+    <style>
+        /* General Reset */
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 50px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Section */
+        .chat-header {
+            padding: 15px;
+            background-color: #075E54; /* WhatsApp-like header color */
+            color: white;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* Messages Section */
+        .messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #e5ddd5;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 8px;
+            background-color: #ddd;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background-color: #aaa;
+            border-radius: 4px;
+        }
+
+        /* Message Bubbles */
+        .message-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        .message-container.me {
+            justify-content: flex-end;
+        }
+
+        .message-container.other {
+            justify-content: flex-start;
+        }
+
+        /* Avatar */
+        .avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #ccc;
+            flex-shrink: 0;
+        }
+
+        /* Message Bubble */
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .message-container.me .message-bubble {
+            background-color: #28b463;
+            color: white;
+            text-align: left;
+        }
+
+        .message-container.other .message-bubble {
+            background-color: white;
+            color: #000;
+            text-align: left;
+        }
+
+        /* Username */
+        .username {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #7b7d7d;
+        }
+
+        /* Timestamp */
+        .message-timestamp {
+            font-size: 0.75rem;
+            color: gray;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        /* Input Section */
+        .chat-input {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            background-color: #fff;
+            border-top: 1px solid #ccc;
+            gap: 5px;
+        }
+
+        .chat-input textarea {
+            flex: 1;
+            resize: none;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 5px 5px;
+            font-size: 1rem;
+            height: 30px;
+            outline: none;
+            background-color: #f9f9f9;
+        }
+
+        .chat-input button {
+            background-color: #075E54;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 5px 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .chat-input button:hover {
+            background-color: #004d36;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Chat Header -->
+        <div class="chat-header">
+            Public Chat
+        </div>
+
+        <!-- Messages Section -->
+        <div class="messages" id="chat-messages">
+            {% for message in messages %}
+                <div class="message-container {% if message.user.username == user.username %}me{% else %}other{% endif %}">
+                    {% if message.user.username != user.username %}
+                        <div class="avatar"></div> <!-- Optional: Replace with actual user avatar -->
+                    {% endif %}
+                    <div class="message-bubble">
+                        <div class="username">{{ message.user.username }}</div>
+                        <div class="message-content">{{ message.content }}</div>
+                        <div class="message-timestamp">{{ message.timestamp|date:"H:i" }}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Input Section -->
+        <div class="chat-input">
+            <textarea id="message-input" placeholder="Type your message..."></textarea>
+            <button id="send-btn">
+                <img src="https://img.icons8.com/ios-filled/50/ffffff/sent.png" alt="Send">
+            </button>
+        </div>
+    </div>
+
+    <script>
+const chatSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/' );
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const chatMessages = document.getElementById('chat-messages');
+
+            const newMessage = `
+                <div class="message-container ${data.username === "{{ user.username }}" ? 'me' : 'other'}">
+                    ${data.username !== "{{ user.username }}" ? '<div class="avatar"></div>' : ''}
+                    <div class="message-bubble">
+                        <div class="username">${data.username}</div>
+                        <div class="message-content">${data.message}</div>
+                        <div class="message-timestamp">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                </div>
+            `;
+            chatMessages.innerHTML += newMessage;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+
+        document.getElementById('send-btn').onclick = function() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            const username = "{{ user.username }}";
+
+
+                chatSocket.send(JSON.stringify({
+                    'message': message,
+                    'username': username
+                }));
+                messageInput.value = '';
+
+        };
+    </script>
+</body>
+</html>
